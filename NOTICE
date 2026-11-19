@@ -1,0 +1,13 @@
+SealGate
+Copyright 2026 Stefan Rohringer
+
+This product includes software developed by Stefan Rohringer.
+Original repository: https://github.com/StefanRohringer/SealGate
+
+Licensed under the Apache License, Version 2.0. Redistributions and derivative
+works must retain this NOTICE file, as required by Section 4(d) of the license.
+
+bench/scenarios/published.json contains attack templates adapted from AgentDojo
+(https://github.com/ethz-spylab/agentdojo) and InjecAgent
+(https://github.com/uiuc-kang-lab/InjecAgent), both MIT licensed. Their license
+texts and copyright notices are in THIRD_PARTY_NOTICES.

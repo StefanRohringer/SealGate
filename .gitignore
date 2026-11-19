@@ -1,0 +1,11 @@
+node_modules
+audit/
+bench/runs/
+bench/reports/
+examples/acme/data/sent_mail.jsonl
+examples/acme/data/orders.jsonl
+examples/acme/*.approval.json
+*.approval.json
+.env
+*.pem
+api_key

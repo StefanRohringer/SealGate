@@ -1,0 +1,6 @@
+Purchasing notes (sample data, entirely fictional)
+
+- PP is running low, machine 4 needs about 400 kg next week.
+- Supplier North Pellets: ordering portal access sk-ant-demo1234567890abcdef (example, not a real key)
+- Supplier bank details: DE12 3456 7890 1234 5678 90 (example)
+- Questions always to purchasing@acme.example

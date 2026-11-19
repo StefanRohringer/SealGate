@@ -1,0 +1,174 @@
+{
+  "name": "acme-demo",
+  "description": "Purchasing assistant of a fictional manufacturer: reads stock and notes, writes reports, emails internally, orders plastic pellets.",
+  "target": {
+    "command": "node",
+    "args": [
+      "../server.js"
+    ],
+    "cwd": "data"
+  },
+  "audit_dir": "../../audit",
+  "tools": {
+    "list_folder": {
+      "note": "paths are relative to the working folder; anything except the folder internal",
+      "checks": [
+        {
+          "field": "path",
+          "type": "path_within",
+          "folders": [
+            "data"
+          ]
+        },
+        {
+          "field": "path",
+          "type": "deny_pattern",
+          "patterns": [
+            "internal"
+          ]
+        }
+      ]
+    },
+    "read_file": {
+      "note": "paths are relative to the working folder (for example stock.csv); nothing from internal, no key files",
+      "checks": [
+        {
+          "field": "path",
+          "type": "path_within",
+          "folders": [
+            "data"
+          ]
+        },
+        {
+          "field": "path",
+          "type": "deny_pattern",
+          "patterns": [
+            "internal",
+            "\\.env",
+            "\\.pem$",
+            "passw"
+          ]
+        }
+      ],
+      "rate_limit": {
+        "count": 60,
+        "per_seconds": 3600
+      }
+    },
+    "write_file": {
+      "note": "only into the folder outbox (for example outbox/report.md, paths relative to the working folder), text files, at most 20000 characters, no bank details or keys",
+      "checks": [
+        {
+          "field": "path",
+          "type": "path_within",
+          "folders": [
+            "data/outbox"
+          ]
+        },
+        {
+          "field": "path",
+          "type": "pattern",
+          "pattern": "\\.(txt|md|csv)$"
+        },
+        {
+          "field": "content",
+          "type": "max_length",
+          "max": 20000
+        },
+        {
+          "field": "content",
+          "type": "deny_pattern",
+          "patterns": [
+            "[A-Z]{2}\\d{2} ?(\\d{4} ?){4}\\d{2}",
+            "sk-ant-"
+          ]
+        }
+      ],
+      "rate_limit": {
+        "count": 20,
+        "per_seconds": 3600
+      }
+    },
+    "send_email": {
+      "note": "only to purchasing@ and boss@ of the own company, at most 5 per hour",
+      "checks": [
+        {
+          "field": "to",
+          "type": "allow_list",
+          "values": [
+            "purchasing@acme.example",
+            "boss@acme.example"
+          ]
+        },
+        {
+          "field": "subject",
+          "type": "max_length",
+          "max": 150
+        },
+        {
+          "field": "body",
+          "type": "max_length",
+          "max": 5000
+        },
+        {
+          "field": "body",
+          "type": "deny_pattern",
+          "patterns": [
+            "IBAN",
+            "sk-ant-"
+          ]
+        }
+      ],
+      "rate_limit": {
+        "count": 5,
+        "per_seconds": 3600
+      }
+    },
+    "place_order": {
+      "note": "only PP, ABS or PA6 pellets, 25 to 1000 kg, up to 5000 EUR; a human must approve once an order or the daily sum without approval reaches 500 EUR; at most 3 per day",
+      "checks": [
+        {
+          "field": "item",
+          "type": "allow_list",
+          "values": [
+            "PP pellets",
+            "ABS pellets",
+            "PA6 pellets"
+          ]
+        },
+        {
+          "field": "quantity_kg",
+          "type": "number",
+          "min": 25,
+          "max": 1000
+        },
+        {
+          "field": "price_eur",
+          "type": "number",
+          "min": 0,
+          "max": 5000
+        }
+      ],
+      "human_approval": {
+        "field": "price_eur",
+        "at_least": 500,
+        "rolling_sum_seconds": 86400
+      },
+      "rate_limit": {
+        "count": 3,
+        "per_seconds": 86400
+      }
+    }
+  },
+  "global_rate_limit": {
+    "count": 200,
+    "per_seconds": 3600
+  },
+  "redact": [
+    "sk-ant-[A-Za-z0-9_-]{8,}",
+    "-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----",
+    "[A-Z]{2}\\d{2}(?: ?\\d{4}){4} ?\\d{2}"
+  ],
+  "max_response_chars": 20000,
+  "human_approval_timeout_s": 120
+}
