@@ -58,7 +58,7 @@ async function main () {
     args: target.args || [], cwd: targetDir, env, stderr: 'pipe'
   })
   if (transport.stderr) transport.stderr.on('data', d => process.stderr.write(d))
-  const client = new Client({ name: 'sealgate-gateway', version: '0.1.0' })
+  const client = new Client({ name: 'sealgate-gateway', version: '0.2.0' })
   await client.connect(transport)
 
   // Counters are kept on disk in the protected SealGate directory, so limits survive a restart.
@@ -71,7 +71,7 @@ async function main () {
     return { content: [{ type: 'text', text: JSON.stringify({ result: 'denied', gate, reason }) }], isError: true }
   }
 
-  const server = new Server({ name: 'sealgate', version: '0.1.0' }, { capabilities: { tools: {} } })
+  const server = new Server({ name: 'sealgate', version: '0.2.0' }, { capabilities: { tools: {} } })
 
   // Tool list: only approved tools, with the note from the policy.
   server.setRequestHandler(ListToolsRequestSchema, async () => {
