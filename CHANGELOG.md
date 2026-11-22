@@ -18,6 +18,7 @@
 - `test/approval.test.js` and three checks in `test/gateway.test.js`: unsigned, foreign-key and replayed approvals are denied.
 - `test/keyfile.test.js`: key on a stick, stick unplugged, moving a key.
 - `test/counter.test.js`: eight real processes deciding at the same instant, stale and held locks.
+- `GUIDE.md`: step-by-step setup and daily use.
 
 ### Known limits
 
