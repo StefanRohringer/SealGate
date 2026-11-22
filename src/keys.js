@@ -46,10 +46,15 @@ function loadPrivateKey (password) {
 
 // Create the key pair. The public key always goes to the SealGate directory (the gateway needs only that one).
 // The private key goes to keyFile if given (for example a file on a USB stick), otherwise next to it.
-function createKeyPair (password, keyFile) {
+// Throws if a new key pair must not be created (so the caller can say so before asking for a password).
+function checkCanCreate (keyFile) {
   const target = keyFile ? path.resolve(keyFile) : DEFAULT_PRIVATE_KEY
   if (fs.existsSync(PUBLIC_KEY)) throw new Error(`a public key already exists: ${PUBLIC_KEY}. If your private key is on a stick, plug it in. To start over, delete that file first`)
   if (fs.existsSync(target)) throw new Error(`a private key already exists: ${target}`)
+  return target
+}
+function createKeyPair (password, keyFile) {
+  const target = checkCanCreate(keyFile)
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519')
   fs.mkdirSync(DIR, { recursive: true, mode: 0o700 })
   fs.mkdirSync(path.dirname(target), { recursive: true })
@@ -110,6 +115,6 @@ function nextSerial () {
   return n
 }
 
-module.exports = { DIR, PUBLIC_KEY, KEY_LOCATION, STATE, ESTOP, APPROVALS, fingerprint, loadPublicKey, privateKeyFile, loadPrivateKey, createKeyPair, moveKey, askHidden, nextSerial }
+module.exports = { DIR, PUBLIC_KEY, KEY_LOCATION, STATE, ESTOP, APPROVALS, fingerprint, loadPublicKey, privateKeyFile, loadPrivateKey, checkCanCreate, createKeyPair, moveKey, askHidden, nextSerial }
 // PRIVATE_KEY is the current location of the private key (see privateKeyFile).
 Object.defineProperty(module.exports, 'PRIVATE_KEY', { enumerable: true, get: privateKeyFile })

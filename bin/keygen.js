@@ -27,6 +27,7 @@ async function main () {
   }
   const keyFile = arg('key-file')
   if (process.argv.includes('--key-file') && !keyFile) { console.log('usage: node bin/keygen.js --key-file <file>'); process.exit(1) }
+  K.checkCanCreate(keyFile)
   const p1 = await K.askHidden('New password for approvals (at least 12 characters): ')
   if (p1.length < 12) { console.log('Too short.'); process.exit(1) }
   if (p1 !== await K.askHidden('Repeat password: ')) { console.log('Passwords do not match.'); process.exit(1) }

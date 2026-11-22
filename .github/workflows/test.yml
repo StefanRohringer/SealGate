@@ -14,3 +14,4 @@ jobs:
       - run: npm install
       - run: npm test
       - run: npm run bench:dry -- --scenarios-file business.json
+      - run: npm run bench:dry -- --scenarios-file events.json

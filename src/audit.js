@@ -14,8 +14,14 @@ const GENESIS = '0'.repeat(64)
 class AuditLog {
   constructor (dir, run) {
     fs.mkdirSync(dir, { recursive: true })
-    this.file = path.join(dir, `${run}.jsonl`)
-    this.run = run
+    // Every gateway gets its own file. If the name is taken (two gateways started in the same millisecond),
+    // a number is added: two writers in one file would break the hash chain.
+    let name = run
+    for (let i = 2; ; i++) {
+      try { fs.closeSync(fs.openSync(path.join(dir, `${name}.jsonl`), 'wx')); break } catch (e) { if (e.code !== 'EEXIST') throw e; name = `${run}-${i}` }
+    }
+    this.file = path.join(dir, `${name}.jsonl`)
+    this.run = name
     this.prev = GENESIS
     this.n = 0
   }

@@ -151,7 +151,7 @@ node bin/verify-audit.js path/to/audit/*.jsonl
 | `policy was changed after approval` | The policy file differs from what you signed. | Review the change, then sign again. |
 | `approval expired` | The validity period is over. | Sign again. |
 | `approval was made with a different key` | The policy was signed with another key pair. | Sign again with the current key. |
-| `answer is not signed with the approval key` | Something other than `approve.js` wrote an answer. | Find out what wrote into `~/.sealgate/approvals`. |
+| `answer is not signed with the approval key` | The answer file carries no valid signature. `approve.js` writes such a file itself when you answer `n` while the stick is unplugged; the call is denied either way. | If you did not do that, find out what else wrote into `~/.sealgate/approvals`. |
 | `at most N calls in ... seconds` | A rate limit from the policy was reached. | Wait, or change the policy and sign again. |
 | `counter is locked by another gateway` | A gateway held the counter lock for more than 5 seconds. | Check for a hanging gateway process. |
 | `emergency stop is set` | `ESTOP` exists. | `node bin/estop.js off` |

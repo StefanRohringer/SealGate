@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.1 (2026-11-22)
+
+Found in a review of the whole repository after 0.3.0.
+
+### Fixed
+
+- Two gateways with the same policy that started in the same millisecond wrote into the same audit file, which broke its hash chain. Every gateway now gets its own audit file (the name contains the process id, and a taken name gets a number).
+- `bin/approve.js` and `bin/keygen.js` asked for the password before noticing that the stick was missing or that a key already existed. They now check first.
+- `GUIDE.md`: the entry for "answer is not signed with the approval key" did not mention that `approve.js` itself writes an unsigned answer when you say no with the stick unplugged.
+
+### Changed
+
+- CI also runs the event-driven dry run.
+
 ## 0.3.0 (2026-11-22)
 
 ### Security

@@ -46,7 +46,7 @@ Requires Node.js 18 or newer. A step-by-step guide, including the key on a USB s
 git clone https://github.com/StefanRohringer/SealGate.git
 cd SealGate
 npm install
-npm test                                        # 101 checks with a throwaway key
+npm test                                        # 103 checks with a throwaway key
 node bin/keygen.js                              # once: your approval key in ~/.sealgate
 node bin/sign-policy.js examples/acme/acme.policy.json
 node bin/agent.js examples/acme/acme.policy.json "Check the stock list and reorder what is below minimum."
@@ -177,7 +177,7 @@ First measurements are in [RESULTS.md](RESULTS.md).
 | `test/gateway.test.js` | 48 automated checks against the running gateway |
 | `test/approval.test.js` | 10 automated checks: signed and forged approvals |
 | `test/keyfile.test.js` | 19 automated checks: private key on a stick |
-| `test/counter.test.js` | 24 automated checks: limits across restarts and with several gateways at the same instant |
+| `test/counter.test.js` | 26 automated checks: limits across restarts and with several gateways at the same instant |
 | `GUIDE.md` | step-by-step setup and daily use |
 | `bench/` | prompt injection benchmark with and without the gateway |
 | `examples/acme/` | naive demo server, policy and fictional company data |

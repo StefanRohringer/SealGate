@@ -50,6 +50,7 @@ async function sign (file, request, decision, reason) {
 }
 
 async function main () {
+  if (!fs.existsSync(K.PRIVATE_KEY)) { console.log(`private key not found: ${K.PRIVATE_KEY}. If it is on a stick, plug it in. If you have no key yet: node bin/keygen.js`); process.exit(1) }
   if (!EVERY) {
     sessionPassword = await K.askHidden('Password for approvals: ')
     try { K.loadPrivateKey(sessionPassword) } catch (e) {

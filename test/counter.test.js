@@ -125,6 +125,14 @@ async function concurrent () {
   expect('lock held by a live gateway: call is denied', call(new G.Counter(lockTest, { lockWaitMs: 300 }), order(75)), 'denied [rate]')
   fs.unlinkSync(lockTest + '.lock')
   expect('lock released: works again', call(new G.Counter(lockTest), order(75)), 'executed')
+
+  console.log('\nAudit logs of gateways that start at the same moment')
+  const { AuditLog, verifyChain } = require('../src/audit')
+  const auditDir = path.join(TMP, 'audit')
+  const one = new AuditLog(auditDir, 'acme_same-millisecond'); const two = new AuditLog(auditDir, 'acme_same-millisecond')
+  one.write({ event: 'start' }); two.write({ event: 'start' }); one.write({ tool: 'a' }); two.write({ tool: 'b' })
+  expect('two gateways get two audit files', String(one.file !== two.file), 'true')
+  expect('both hash chains are intact', String(verifyChain(one.file).ok && verifyChain(two.file).ok), 'true')
 }
 
 concurrent().then(() => {
