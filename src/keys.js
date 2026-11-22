@@ -19,6 +19,7 @@ const SERIAL = path.join(DIR, 'serial')
 const STATE = path.join(DIR, 'gateway_state.json')
 const ESTOP = path.join(DIR, 'ESTOP')
 const APPROVALS = path.join(DIR, 'approvals')
+const AUDIT_HEADS = path.join(DIR, 'audit_heads')
 
 function fingerprint (publicKey) {
   const der = publicKey.export({ type: 'spki', format: 'der' })
@@ -115,6 +116,6 @@ function nextSerial () {
   return n
 }
 
-module.exports = { DIR, PUBLIC_KEY, KEY_LOCATION, STATE, ESTOP, APPROVALS, fingerprint, loadPublicKey, privateKeyFile, loadPrivateKey, checkCanCreate, createKeyPair, moveKey, askHidden, nextSerial }
+module.exports = { DIR, PUBLIC_KEY, KEY_LOCATION, STATE, ESTOP, APPROVALS, AUDIT_HEADS, fingerprint, loadPublicKey, privateKeyFile, loadPrivateKey, checkCanCreate, createKeyPair, moveKey, askHidden, nextSerial }
 // PRIVATE_KEY is the current location of the private key (see privateKeyFile).
 Object.defineProperty(module.exports, 'PRIVATE_KEY', { enumerable: true, get: privateKeyFile })

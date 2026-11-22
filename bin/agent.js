@@ -37,7 +37,7 @@ async function main () {
   const key = await findApiKey(arg('key-file'))
   const transport = new StdioClientTransport({ command: process.execPath, args: [path.join(__dirname, '..', 'src', 'gateway.js'), POLICY], stderr: 'pipe' })
   transport.stderr && transport.stderr.on('data', d => process.stdout.write('\x1b[90m' + d + '\x1b[0m'))
-  const client = new Client({ name: 'sealgate-agent', version: '0.3.1' })
+  const client = new Client({ name: 'sealgate-agent', version: '0.4.0' })
   await client.connect(transport)
   const tools = (await client.listTools()).tools.map(t => ({ name: t.name, description: t.description || '', input_schema: t.inputSchema }))
   console.log(`Model ${MODEL}, tools: ${tools.map(t => t.name).join(', ')}\n`)

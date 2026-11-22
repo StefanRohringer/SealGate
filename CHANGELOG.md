@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.4.0 (2026-11-22)
+
+### Security
+
+- The audit log is now anchored. Its hash chain uses no secret, so it showed changes inside a log, but not lines cut off at the end and not a log rewritten as a whole with new hashes. After every line the gateway now records the number and hash of the last line in `~/.sealgate/audit_heads`, outside the log and out of reach of agent tools. `bin/verify-audit.js` checks each log against its anchor: cut-off lines, added lines and a rewritten log are detected. `node bin/verify-audit.js --all` checks every log this machine wrote and reports deleted ones.
+
+### Changed
+
+- `bin/verify-audit.js` says for every file whether its end was checked against an anchor. Logs written before 0.4.0 or on another machine have no anchor and are checked by their chain only.
+- README: the comparison with other projects was checked against the linked pages and adjusted in three places.
+
+### Added
+
+- `test/audit.test.js` and four checks in `test/gateway.test.js`.
+
+### Known limits
+
+- Audit lines are not signed. Whoever can write both the log and `~/.sealgate` can forge both.
+- Counters and anchors are per machine.
+
 ## 0.3.1 (2026-11-22)
 
 Found in a review of the whole repository after 0.3.0.

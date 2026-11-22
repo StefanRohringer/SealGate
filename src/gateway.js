@@ -16,7 +16,7 @@
 //   6. Human:          where the policy says so, a human must approve (bin/approve.js). The answer must be
 //                      signed with the approval key and match the request.
 //   7. Execute, then redact secrets in the response.
-// Every decision is written to a hash-chained audit log.
+// Every decision is written to a hash-chained audit log. Its last line is anchored in ~/.sealgate/audit_heads.
 //
 // Usage (from an MCP client): node src/gateway.js <policy.json>
 
@@ -48,7 +48,7 @@ async function main () {
   const targetKey = G.canonical(target)
   const targetDir = path.resolve(policyDir, target.cwd || '.')
   const audit = new AuditLog(path.resolve(policyDir, start.policy.audit_dir || 'audit'),
-    `${start.policy.name}_${new Date().toISOString().replace(/[:.]/g, '-')}_${process.pid}`)
+    `${start.policy.name}_${new Date().toISOString().replace(/[:.]/g, '-')}_${process.pid}`, { headDir: K.AUDIT_HEADS })
   audit.write({ event: 'start', policy: start.policy.name, serial: start.doc.serial, expires_at: start.doc.expires_at })
   log(`policy "${start.policy.name}" approved (serial ${start.doc.serial}). Audit log: ${audit.file}`)
 
@@ -59,7 +59,7 @@ async function main () {
     args: target.args || [], cwd: targetDir, env, stderr: 'pipe'
   })
   if (transport.stderr) transport.stderr.on('data', d => process.stderr.write(d))
-  const client = new Client({ name: 'sealgate-gateway', version: '0.3.1' })
+  const client = new Client({ name: 'sealgate-gateway', version: '0.4.0' })
   await client.connect(transport)
 
   // Counters are kept on disk in the protected SealGate directory, so limits survive a restart.
@@ -73,7 +73,7 @@ async function main () {
     return { content: [{ type: 'text', text: JSON.stringify({ result: 'denied', gate, reason }) }], isError: true }
   }
 
-  const server = new Server({ name: 'sealgate', version: '0.3.1' }, { capabilities: { tools: {} } })
+  const server = new Server({ name: 'sealgate', version: '0.4.0' }, { capabilities: { tools: {} } })
 
   // Tool list: only approved tools, with the note from the policy.
   server.setRequestHandler(ListToolsRequestSchema, async () => {

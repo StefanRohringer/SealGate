@@ -22,7 +22,7 @@ What makes SealGate different from a typical gateway:
 - **Every human approval is signed** with the same key and bound to the exact request. A file dropped into the approvals folder by another program is not an approval, and a signed yes cannot be reused for another call.
 - **A benchmark that measures with and without the gateway**, and separates *deceived* (the model tried) from *harm* (the call was executed).
 
-Status: **0.3, early.** Read [SECURITY.md](SECURITY.md) before you rely on it.
+Status: **0.4, early.** Read [SECURITY.md](SECURITY.md) before you rely on it.
 
 ## What happens on every call
 
@@ -36,7 +36,7 @@ Status: **0.3, early.** Read [SECURITY.md](SECURITY.md) before you rely on it.
 | 6 | **Human**: where the policy says so, a human must approve. The answer must be signed with the approval key for exactly this request | denied after timeout or without a valid signature |
 | 7 | **Response**: secrets (API keys, IBANs, ...) redacted before the model sees them | redacted |
 
-Every decision is written as a JSON line to an audit log. Lines are chained by hashes, so a changed or removed line is detected by `bin/verify-audit.js`.
+Every decision is written as a JSON line to an audit log. Lines are chained by hashes, so a changed or removed line is detected by `bin/verify-audit.js`. The gateway also records the last line of every log in `~/.sealgate/audit_heads`, outside the log and out of reach of agent tools. With that anchor, lines cut off at the end, added lines, a log rewritten as a whole and a deleted log are detected too.
 
 ## Quick start
 
@@ -46,7 +46,7 @@ Requires Node.js 18 or newer. A step-by-step guide, including the key on a USB s
 git clone https://github.com/StefanRohringer/SealGate.git
 cd SealGate
 npm install
-npm test                                        # 103 checks with a throwaway key
+npm test                                        # 122 checks with a throwaway key
 node bin/keygen.js                              # once: your approval key in ~/.sealgate
 node bin/sign-policy.js examples/acme/acme.policy.json
 node bin/agent.js examples/acme/acme.policy.json "Check the stock list and reorder what is below minimum."
@@ -172,9 +172,10 @@ First measurements are in [RESULTS.md](RESULTS.md).
 | `bin/sign-policy.js` | review and sign a policy (password needed) |
 | `bin/approve.js` | a human decides on pending requests and signs each decision (password once at start) |
 | `bin/estop.js` | emergency stop on and off |
-| `bin/verify-audit.js` | check audit logs |
+| `bin/verify-audit.js` | check audit logs against their hash chain and their anchor (`--all` for every log of this machine) |
 | `bin/agent.js` | Claude agent that works only through the gateway |
-| `test/gateway.test.js` | 48 automated checks against the running gateway |
+| `test/gateway.test.js` | 52 automated checks against the running gateway |
+| `test/audit.test.js` | 15 automated checks: tampering inside and at the end of the audit log |
 | `test/approval.test.js` | 10 automated checks: signed and forged approvals |
 | `test/keyfile.test.js` | 19 automated checks: private key on a stick |
 | `test/counter.test.js` | 26 automated checks: limits across restarts and with several gateways at the same instant |
@@ -188,9 +189,9 @@ SealGate combines known building blocks. Several projects already proxy MCP serv
 
 | Project | What it shares with SealGate | Difference |
 |---|---|---|
-| [Blastgate](https://github.com/bzucker4/blastgate) (AGPL-3.0) | stdio MCP proxy, rule file checked before every tool call, human approval with timeout, fail closed, hash-chained audit log | Audit lines are also Ed25519-signed (stronger than SealGate). Rules are a YAML file, not a policy signed by a human with expiry and serial |
+| [Blastgate](https://github.com/bzucker4/blastgate) (AGPL-3.0) | stdio MCP proxy, rule file checked before every tool call, human approval with timeout, fail closed, hash-chained audit log | Audit lines are also Ed25519-signed, which SealGate's are not (SealGate anchors the end of each log outside the log instead). Rules are a YAML file, not a policy signed by a human with expiry and serial |
 | [mcp-audit-gateway](https://github.com/elang2/mcp-audit-gateway) | wraps MCP servers, signed and hash-chained audit records, policy with rate limits | Signs the log entries, not the policy itself |
-| [protect-mcp](https://www.npmjs.com/package/protect-mcp) | fail-closed policy gate for MCP with human approval and signed receipts | Uses Cedar policies |
+| [protect-mcp](https://www.npmjs.com/package/protect-mcp) | fail-closed policy gate for MCP with human approval and signed receipts | Uses Cedar or JSON policies and signs every decision as a receipt |
 | [Progent](https://arxiv.org/abs/2504.11703), [CaMeL](https://arxiv.org/abs/2503.18813) | research on deterministic privilege control for agents, evaluated on AgentDojo | Research systems, not drop-in MCP gateways |
 
 What SealGate adds to this picture:
@@ -201,7 +202,7 @@ What SealGate adds to this picture:
 - **Field checks** including `path_within` with symlink resolution, and redaction of secrets in responses and written content.
 - **A benchmark that runs every scenario with and without the gateway**, separates "deceived" from "harm" and measures utility on the resulting state.
 
-SealGate is not a new category. If you need signed audit lines or identity-aware routing today, look at the projects above.
+SealGate is not a new category. If you need signed audit lines or rules per caller identity today, look at the projects above. The table was last checked against the linked pages on 22 November 2026.
 
 ## License
 

@@ -128,11 +128,14 @@ node bin/estop.js off
 
 ## 8. Check the audit log
 
-Every decision is written to an audit file in the folder named by `audit_dir` in the policy (default: `audit` next to the policy). To check that no line was changed or removed:
+Every decision is written to an audit file in the folder named by `audit_dir` in the policy (default: `audit` next to the policy). The gateway also notes the last line of every log in `~/.sealgate/audit_heads`.
 
 ```bash
-node bin/verify-audit.js path/to/audit/*.jsonl
+node bin/verify-audit.js path/to/audit/*.jsonl    # these files
+node bin/verify-audit.js --all                    # every log this machine wrote, also deleted ones
 ```
+
+`intact ... end anchored` means: nothing was changed, removed, added or cut off. `no anchor on this machine` means only the inside of the file could be checked, for example for a log from another machine or from before 0.4.0. `CHANGED` names the line or says what is wrong with the end of the log.
 
 ## 9. Day to day
 
@@ -165,4 +168,4 @@ node bin/keygen.js --key-file /media/$USER/STICK/sealgate_key.pem
 
 Then sign every policy again. Old approvals stop working, because they were made with the old key.
 
-**What is in `~/.sealgate`.** `public_key.pem`, the private key unless it is on a stick, `key_location` (where the private key is), the serial number of the last approval, the emergency stop, pending and decided approvals, and the counters for rate limits and sums. No tool of the agent can reach this folder through SealGate. Do not put it on a network drive.
+**What is in `~/.sealgate`.** `public_key.pem`, the private key unless it is on a stick, `key_location` (where the private key is), the serial number of the last approval, the emergency stop, pending and decided approvals, the counters for rate limits and sums, and the anchors of the audit logs. No tool of the agent can reach this folder through SealGate. Do not put it on a network drive.

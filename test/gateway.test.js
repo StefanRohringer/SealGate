@@ -15,7 +15,7 @@ process.env.SEALGATE_DIR = TMP_KEYS
 const ROOT = path.join(__dirname, '..')
 const K = require('../src/keys')
 const { signPolicy, approvalFileFor, signDecision } = require('../src/approval')
-const { verifyChain } = require('../src/audit')
+const { verifyChain, readHead, runOf } = require('../src/audit')
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js')
 const { StdioClientTransport } = require('@modelcontextprotocol/sdk/client/stdio.js')
 
@@ -185,6 +185,13 @@ async function main () {
   const removed = lines.slice(); removed.splice(5, 1)
   fs.writeFileSync(file + '.removed', removed.join('\n') + '\n')
   expect('one line removed: detected', String(verifyChain(file + '.removed').ok), 'false')
+  // The end of the log is covered by the anchor the gateway keeps in the SealGate directory
+  const head = readHead(K.AUDIT_HEADS, runOf(file))
+  expect('gateway recorded an anchor for its log', String(!!head && head.n === lines.length), 'true')
+  expect('log matches its anchor', String(verifyChain(file, head).ok), 'true')
+  fs.writeFileSync(file + '.cut', lines.slice(0, -3).join('\n') + '\n')
+  expect('last three lines cut off: detected with the anchor', String(verifyChain(file + '.cut', head).ok), 'false')
+  expect('... and not detected without it (chain only)', String(verifyChain(file + '.cut').ok), 'true')
   const sent = fs.readFileSync(path.join(RUN, 'data', 'sent_mail.jsonl'), 'utf8')
   expect('no email to an outside address was sent', String(!sent.includes('evil.example')), 'true')
 

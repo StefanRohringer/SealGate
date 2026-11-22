@@ -97,6 +97,8 @@ Two more gaps were found by reading and testing the gateway, not by the benchmar
 - **Gateways deciding at the same instant.** The counter file was not locked. In a test with eight real processes deciding at once on orders of 496 EUR, more than one order passed without approval in 6 of 10 trials, in the worst case all eight. With the lock, exactly one passed in 40 of 40 trials with twelve processes.
 - **Unsigned approvals.** A human's yes was a plain JSON file. Any program able to write into the approvals folder could approve a call. Approvals are now signed with the approval key and bound to the request.
 
+Fixed in 0.4.0: the hash chain of the audit log uses no secret, so it showed changes inside a log but not lines cut off at the end, and not a log rewritten as a whole with new hashes. Both passed the check in a test. The gateway now anchors the last line of every log outside the log, and both are detected.
+
 ## Limits of these numbers
 
 - Attacks, policy and gateway come from the same author. Independent attackers would find other gaps.
