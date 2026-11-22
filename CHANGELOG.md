@@ -16,6 +16,7 @@
 ### Changed
 
 - The benchmark starts every run with empty counters.
+- `SECURITY.md` no longer lists restarts as a gap; it lists concurrent gateways instead.
 
 ### Known limits
 

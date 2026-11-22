@@ -9,7 +9,7 @@ SealGate is an additional layer of defense for AI agents. It is not a certified 
 - **Bugs in the target server.** If the real MCP server has a flaw that allowed inputs can trigger, the gateway does not help.
 - **Bypass.** SealGate only protects calls that go through it. If the agent has another path to the same system, that path is unprotected.
 - **Information flow.** Values are checked against static rules, not by where they came from. An injected instruction can still cause harm within the allowed limits (for example an allowed recipient with misleading content).
-- **Restarts.** Rate limits and rolling sums are kept in memory and reset when the gateway restarts.
+- **Concurrent gateways.** Rate limits and rolling sums are stored on disk and survive a restart, but the counter file is not locked. Two gateways that decide at the same instant can both let a call pass.
 - **Truncated audit logs.** Changed or removed lines in the middle of an audit log are detected; missing lines at the end are not.
 - **Access to ~/.sealgate.** Keys, the emergency stop and pending human approvals live there as files. No tool of the agent may ever reach this directory. SealGate refuses paths into it, but other tools on the same machine could still reach it.
 
