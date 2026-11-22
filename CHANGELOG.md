@@ -1,11 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2026-11-22)
 
 ### Security
 
+- Counters are now locked. Checking the rate limit, looking at the rolling sum and booking the call happen as one step under a lock file, so several gateways with the same policy that decide at the same instant can no longer all let a call pass. Before, eight gateways deciding at once on orders of 496 EUR let more than one pass in 6 of 10 trials. The lock is not held while waiting for a human; after a yes the call is booked in a second locked step that checks the rate limit again. A lock left by a crashed gateway is taken over; if the lock cannot be had within 5 seconds, the call is denied.
 - Human approvals for single calls are now signed. `bin/approve.js` signs every decision with the approval key (it asks for the password once at the start), and the gateway accepts a yes only if the signature is valid, made with the approval key and bound to exactly that request. Before, any program that could write into `~/.sealgate/approvals/decided` could approve a call with a plain JSON file.
-
 - The private key can live outside `~/.sealgate`, for example on a USB stick: `node bin/keygen.js --key-file <file>` for a new key, `--move-to <file>` for an existing one. `bin/approve.js` and `bin/sign-policy.js` read the key fresh for every signature and do not keep it, so with the stick unplugged nothing can be approved or signed. The key file is never reachable for agent tools, wherever it lives.
 
 ### Changed
@@ -17,6 +17,13 @@
 
 - `test/approval.test.js` and three checks in `test/gateway.test.js`: unsigned, foreign-key and replayed approvals are denied.
 - `test/keyfile.test.js`: key on a stick, stick unplugged, moving a key.
+- `test/counter.test.js`: eight real processes deciding at the same instant, stale and held locks.
+
+### Known limits
+
+- Counters are per machine. Gateways on different machines do not share them.
+- A USB stick is not a hardware security key: while it is plugged in, the encrypted key file can be copied.
+- Missing lines at the end of the audit log are not detected.
 
 ## 0.2.0 (2026-11-22)
 

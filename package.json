@@ -1,6 +1,6 @@
 {
   "name": "sealgate",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A fail-closed MCP gateway for AI agents: the model proposes, a human-signed policy decides.",
   "license": "Apache-2.0",
   "main": "src/gateway.js",

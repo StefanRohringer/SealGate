@@ -59,7 +59,7 @@ async function main () {
     args: target.args || [], cwd: targetDir, env, stderr: 'pipe'
   })
   if (transport.stderr) transport.stderr.on('data', d => process.stderr.write(d))
-  const client = new Client({ name: 'sealgate-gateway', version: '0.2.0' })
+  const client = new Client({ name: 'sealgate-gateway', version: '0.3.0' })
   await client.connect(transport)
 
   // Counters are kept on disk in the protected SealGate directory, so limits survive a restart.
@@ -73,7 +73,7 @@ async function main () {
     return { content: [{ type: 'text', text: JSON.stringify({ result: 'denied', gate, reason }) }], isError: true }
   }
 
-  const server = new Server({ name: 'sealgate', version: '0.2.0' }, { capabilities: { tools: {} } })
+  const server = new Server({ name: 'sealgate', version: '0.3.0' }, { capabilities: { tools: {} } })
 
   // Tool list: only approved tools, with the note from the policy.
   server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -115,28 +115,43 @@ async function main () {
     const c = G.checkInput(rule, input, ctx)
     if (!c.ok) return denied(tool, input, c.gate, c.reason)
 
-    // 5. Rate
-    for (const [key, limit] of [[tool, rule.rate_limit], ['*', policy.global_rate_limit]]) {
-      const r = counter.check(key, limit)
-      if (!r.ok) return denied(tool, input, 'rate', r.reason)
-    }
-
-    // 6. Human (with rolling_sum_seconds, what already passed without a human counts too)
+    // 5. Rate and rolling sum. Checked and booked in one locked step (counter.transaction), so two gateways
+    // with the same policy that decide at the same instant cannot both let a call pass.
     const h = rule.human_approval
     const sumKey = `${tool}:without_human`
-    const sofar = h && h.rolling_sum_seconds ? counter.sum(sumKey, h.rolling_sum_seconds) : 0
-    const withHuman = G.needsHuman(rule, input, sofar)
-    if (withHuman) {
-      const a = await askHuman(policy, tool, { ...input, ...(sofar ? { _sum_without_approval: sofar } : {}) })
+    const rates = [[tool, rule.rate_limit], ['*', policy.global_rate_limit]]
+    const overRate = (c) => { for (const [key, limit] of rates) { const r = c.check(key, limit); if (!r.ok) return r.reason } return null }
+    let first
+    try {
+      first = counter.transaction(c => {
+        const over = overRate(c)
+        if (over) return { over }
+        // With rolling_sum_seconds, what already passed without a human counts too.
+        const sofar = h && h.rolling_sum_seconds ? c.sum(sumKey, h.rolling_sum_seconds) : 0
+        const withHuman = G.needsHuman(rule, input, sofar)
+        if (!withHuman) {
+          c.record(tool); c.record('*')
+          if (h && h.rolling_sum_seconds) { const f = G.getField(input, h.field); if (f.present && typeof f.value === 'number') c.add(sumKey, f.value) }
+        }
+        return { sofar, withHuman }
+      })
+    } catch (err) { return denied(tool, input, 'rate', `counter state unavailable: ${err.message}`) }
+    if (first.over) return denied(tool, input, 'rate', first.over)
+
+    // 6. Human. The lock is not held while waiting. After a yes, the call is booked in a second locked step
+    // that checks the rate limits again, because other calls may have passed in the meantime.
+    if (first.withHuman) {
+      const a = await askHuman(policy, tool, { ...input, ...(first.sofar ? { _sum_without_approval: first.sofar } : {}) })
       if (!a.ok) return denied(tool, input, 'human', a.reason)
-      audit.write({ tool, input: trim(input), verdict: 'approved', by: a.by, sum_without_approval: sofar })
+      let second
+      try {
+        second = counter.transaction(c => { const over = overRate(c); if (over) return { over }; c.record(tool); c.record('*'); return {} })
+      } catch (err) { return denied(tool, input, 'rate', `counter state unavailable: ${err.message}`) }
+      if (second.over) return denied(tool, input, 'rate', second.over)
+      audit.write({ tool, input: trim(input), verdict: 'approved', by: a.by, sum_without_approval: first.sofar })
     }
 
     // 7. Execute
-    try {
-      counter.record(tool); counter.record('*')
-      if (h && h.rolling_sum_seconds && !withHuman) { const f = G.getField(input, h.field); if (f.present && typeof f.value === 'number') counter.add(sumKey, f.value) }
-    } catch (err) { return denied(tool, input, 'rate', `counter state cannot be saved: ${err.message}`) }
     let result
     try {
       result = await client.callTool({ name: tool, arguments: input }, undefined, { timeout: (rule.timeout_s || 60) * 1000 })

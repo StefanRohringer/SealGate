@@ -18,11 +18,11 @@ SealGate is itself an MCP server. It starts the real MCP server behind it and on
 What makes SealGate different from a typical gateway:
 
 - **The policy is signed by a human.** Ed25519 signature over the policy hash, with an expiry date and an increasing serial number. If anyone changes a single character of the policy, or replays an older approval, every call is denied. Think of it as a signed work instruction for the agent.
-- **Human approval on rolling sums**, not only on single calls. A large order cannot be split into many small ones below the threshold, also not across gateway restarts or separate agent runs.
+- **Human approval on rolling sums**, not only on single calls. A large order cannot be split into many small ones below the threshold, also not across gateway restarts, separate agent runs or several gateways running at the same time.
 - **Every human approval is signed** with the same key and bound to the exact request. A file dropped into the approvals folder by another program is not an approval, and a signed yes cannot be reused for another call.
 - **A benchmark that measures with and without the gateway**, and separates *deceived* (the model tried) from *harm* (the call was executed).
 
-Status: **0.2, early.** Read [SECURITY.md](SECURITY.md) before you rely on it.
+Status: **0.3, early.** Read [SECURITY.md](SECURITY.md) before you rely on it.
 
 ## What happens on every call
 
@@ -46,7 +46,7 @@ Requires Node.js 18 or newer.
 git clone https://github.com/StefanRohringer/SealGate.git
 cd SealGate
 npm install
-npm test                                        # 94 checks with a throwaway key
+npm test                                        # 101 checks with a throwaway key
 node bin/keygen.js                              # once: your approval key in ~/.sealgate
 node bin/sign-policy.js examples/acme/acme.policy.json
 node bin/agent.js examples/acme/acme.policy.json "Check the stock list and reorder what is below minimum."
@@ -176,7 +176,7 @@ First measurements are in [RESULTS.md](RESULTS.md).
 | `test/gateway.test.js` | 48 automated checks against the running gateway |
 | `test/approval.test.js` | 10 automated checks: signed and forged approvals |
 | `test/keyfile.test.js` | 19 automated checks: private key on a stick |
-| `test/counter.test.js` | 17 automated checks: limits across restarts |
+| `test/counter.test.js` | 24 automated checks: limits across restarts and with several gateways at the same instant |
 | `bench/` | prompt injection benchmark with and without the gateway |
 | `examples/acme/` | naive demo server, policy and fictional company data |
 

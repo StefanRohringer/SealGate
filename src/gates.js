@@ -138,14 +138,54 @@ function needsHuman (rule, input, sofar = 0) {
   return true
 }
 
+// A lock file so that only one process at a time decides and books against a counter file.
+// Created with "wx" (fails if it exists), removed when done. If the owner died without removing it
+// (process gone, or the lock is older than STALE_MS), the lock is taken over. If the lock cannot be had
+// within waitMs, this throws, and the caller denies the call (fail closed).
+const STALE_MS = 30000
+const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+const alive = (pid) => { try { process.kill(pid, 0); return true } catch (e) { return e.code === 'EPERM' } }
+function lockFile (lock, waitMs = 5000) {
+  fs.mkdirSync(path.dirname(lock), { recursive: true, mode: 0o700 })
+  const end = Date.now() + waitMs
+  for (;;) {
+    try {
+      const fd = fs.openSync(lock, 'wx', 0o600)
+      fs.writeSync(fd, String(process.pid)); fs.closeSync(fd)
+      return () => { try { fs.unlinkSync(lock) } catch {} }
+    } catch (e) { if (e.code !== 'EEXIST') throw e }
+    // Somebody holds the lock. Take it over only if that somebody is gone.
+    try {
+      const st = fs.statSync(lock)
+      const pid = parseInt(fs.readFileSync(lock, 'utf8'), 10)
+      const dead = (Number.isInteger(pid) && !alive(pid)) || Date.now() - st.mtimeMs > STALE_MS
+      if (dead) {
+        const aside = `${lock}.${process.pid}.stale`
+        fs.renameSync(lock, aside) // atomic: only one process gets this file
+        const st2 = fs.statSync(aside)
+        // If it is not the lock we looked at (a live owner created a new one in between), put it back.
+        if (st2.ino !== st.ino || st2.mtimeMs !== st.mtimeMs) { try { fs.linkSync(aside, lock) } catch {} }
+        fs.unlinkSync(aside)
+        continue
+      }
+    } catch {} // lock vanished or changed while we looked: just try again
+    if (Date.now() > end) throw new Error(`counter is locked by another gateway for more than ${waitMs} ms`)
+    sleepSync(5 + Math.floor(Math.random() * 15))
+  }
+}
+
 // Rate limits and rolling sums over a sliding window.
 // Without a file the state lives in memory only. With a file it is read fresh before every decision and
 // written after every change, so the limits survive a gateway restart and are shared by gateways that
 // use the same policy. If the file cannot be read, every call is denied (fail closed).
+//
+// transaction(fn) runs fn(counter) while holding the lock file: read, decide and book happen as one step,
+// so two gateways that decide at the same instant cannot both let a call pass. Every change to a counter
+// file goes through a transaction.
 class Counter {
-  constructor (file) { this.times = new Map(); this.values = new Map(); this.file = file || null; this.broken = null; this.load() }
+  constructor (file, { lockWaitMs = 5000 } = {}) { this.times = new Map(); this.values = new Map(); this.file = file || null; this.broken = null; this.lockWaitMs = lockWaitMs; this.inTx = false; this.dirty = false; this.load() }
   load () {
-    if (!this.file) return
+    if (!this.file || this.inTx) return
     try {
       const d = fs.existsSync(this.file) ? JSON.parse(fs.readFileSync(this.file, 'utf8')) : {}
       if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('not an object')
@@ -156,10 +196,24 @@ class Counter {
   }
   save () {
     if (!this.file) return
+    if (this.inTx) { this.dirty = true; return } // written once, at the end of the transaction
     fs.mkdirSync(path.dirname(this.file), { recursive: true, mode: 0o700 })
     const tmp = `${this.file}.${process.pid}.tmp`
     fs.writeFileSync(tmp, JSON.stringify({ times: Object.fromEntries(this.times), values: Object.fromEntries(this.values) }), { mode: 0o600 })
     fs.renameSync(tmp, this.file)
+  }
+  transaction (fn) {
+    if (!this.file || this.inTx) return fn(this) // in memory there is only this process
+    const release = lockFile(this.file + '.lock', this.lockWaitMs)
+    try {
+      this.load()
+      if (this.broken) throw new Error(`counter state cannot be read (${this.broken})`)
+      this.inTx = true; this.dirty = false
+      const result = fn(this)
+      this.inTx = false
+      if (this.dirty) this.save()
+      return result
+    } finally { this.inTx = false; release() }
   }
   check (key, limit, now = Date.now()) {
     this.load()
@@ -172,8 +226,7 @@ class Counter {
     return allow('rate')
   }
   record (key, now = Date.now()) {
-    this.load()
-    if (this.broken) throw new Error(`counter state cannot be read (${this.broken})`)
+    if (this.file && !this.inTx) return this.transaction(c => c.record(key, now))
     const list = this.times.get(key) || []
     list.push(now)
     this.times.set(key, list)
@@ -187,8 +240,7 @@ class Counter {
     return list.reduce((s, [, v]) => s + v, 0)
   }
   add (key, value, now = Date.now()) {
-    this.load()
-    if (this.broken) throw new Error(`counter state cannot be read (${this.broken})`)
+    if (this.file && !this.inTx) return this.transaction(c => c.add(key, value, now))
     const list = this.values.get(key) || []
     list.push([now, value])
     this.values.set(key, list)
