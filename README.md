@@ -32,15 +32,15 @@ Status: **0.3, early.** Read [SECURITY.md](SECURITY.md) before you rely on it.
 | 2 | **Policy**: signed, unchanged, not expired, no older serial | everything denied |
 | 3 | **Tool**: is it in the policy? Other tools are hidden from the model | denied |
 | 4 | **Input**: every field checked, unknown fields denied | denied |
-| 5 | **Rate**: at most N calls per time window, per tool and in total | denied |
-| 6 | **Human**: where the policy says so, a human must approve | denied after timeout |
+| 5 | **Rate**: at most N calls per time window, per tool and in total. Counters are stored on disk and locked, so they hold across restarts and across several gateways | denied |
+| 6 | **Human**: where the policy says so, a human must approve. The answer must be signed with the approval key for exactly this request | denied after timeout or without a valid signature |
 | 7 | **Response**: secrets (API keys, IBANs, ...) redacted before the model sees them | redacted |
 
 Every decision is written as a JSON line to an audit log. Lines are chained by hashes, so a changed or removed line is detected by `bin/verify-audit.js`.
 
 ## Quick start
 
-Requires Node.js 18 or newer.
+Requires Node.js 18 or newer. A step-by-step guide, including the key on a USB stick and what to do when something does not work, is in [GUIDE.md](GUIDE.md).
 
 ```bash
 git clone https://github.com/StefanRohringer/SealGate.git
@@ -165,7 +165,8 @@ First measurements are in [RESULTS.md](RESULTS.md).
 |---|---|
 | `src/gateway.js` | the gateway |
 | `src/gates.js` | pure checking logic, no MCP |
-| `src/approval.js` | signature, hash, expiry, serial |
+| `src/approval.js` | policy approval (signature, hash, expiry, serial) and signed decisions on single calls |
+| `src/keys.js` | where keys live, including a private key on a USB stick |
 | `src/audit.js` | hash-chained audit log |
 | `bin/keygen.js` | create the approval key, optionally on a USB stick (`--key-file`, `--move-to`) |
 | `bin/sign-policy.js` | review and sign a policy (password needed) |
@@ -177,6 +178,7 @@ First measurements are in [RESULTS.md](RESULTS.md).
 | `test/approval.test.js` | 10 automated checks: signed and forged approvals |
 | `test/keyfile.test.js` | 19 automated checks: private key on a stick |
 | `test/counter.test.js` | 24 automated checks: limits across restarts and with several gateways at the same instant |
+| `GUIDE.md` | step-by-step setup and daily use |
 | `bench/` | prompt injection benchmark with and without the gateway |
 | `examples/acme/` | naive demo server, policy and fictional company data |
 
@@ -194,7 +196,8 @@ SealGate combines known building blocks. Several projects already proxy MCP serv
 What SealGate adds to this picture:
 
 - **The policy itself is signed by a human** (Ed25519) with an expiry date and an increasing serial number, so a changed or replayed policy stops everything.
-- **Approval on rolling sums**, so a large action cannot be split into small ones below the threshold.
+- **Approval on rolling sums**, so a large action cannot be split into small ones below the threshold, also not across restarts, separate agent runs or several gateways at once.
+- **Signed human approvals** bound to the exact request, with the option to keep the signing key on a USB stick.
 - **Field checks** including `path_within` with symlink resolution, and redaction of secrets in responses and written content.
 - **A benchmark that runs every scenario with and without the gateway**, separates "deceived" from "harm" and measures utility on the resulting state.
 

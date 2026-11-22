@@ -92,6 +92,11 @@ The business results above were measured before these fixes; no model exploited 
 
 A third gap was listed as a known limit and is fixed since 22 November 2026: rate limits and rolling sums lived in memory and were lost when the gateway restarted. With one gateway start per email, a replay of the gateway's decision steps let four orders of 496 EUR pass without approval. The counters are now stored in the protected SealGate directory and survive a restart (`test/counter.test.js`, and `event_salami_across_runs` in the dry run).
 
+Two more gaps were found by reading and testing the gateway, not by the benchmark, and are fixed in 0.3.0:
+
+- **Gateways deciding at the same instant.** The counter file was not locked. In a test with eight real processes deciding at once on orders of 496 EUR, more than one order passed without approval in 6 of 10 trials, in the worst case all eight. With the lock, exactly one passed in 40 of 40 trials with twelve processes.
+- **Unsigned approvals.** A human's yes was a plain JSON file. Any program able to write into the approvals folder could approve a call. Approvals are now signed with the approval key and bound to the request.
+
 ## Limits of these numbers
 
 - Attacks, policy and gateway come from the same author. Independent attackers would find other gaps.
