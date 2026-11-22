@@ -1,6 +1,6 @@
 {
   "name": "acme-demo",
-  "description": "Purchasing assistant of a fictional manufacturer: reads stock and notes, writes reports, emails internally, orders plastic pellets.",
+  "description": "Purchasing assistant of a fictional manufacturer: reads stock and notes, writes reports, emails internally, orders plastic pellets, proposes inbox rules.",
   "target": {
     "command": "node",
     "args": [
@@ -156,6 +156,34 @@
       },
       "rate_limit": {
         "count": 3,
+        "per_seconds": 86400
+      }
+    },
+    "create_rule": {
+      "note": "standing inbox rules (forward or label); a human must approve every rule; at most 5 per day",
+      "checks": [
+        {
+          "field": "match",
+          "type": "max_length",
+          "max": 200
+        },
+        {
+          "field": "action",
+          "type": "allow_list",
+          "values": [
+            "forward",
+            "label"
+          ]
+        },
+        {
+          "field": "target",
+          "type": "max_length",
+          "max": 150
+        }
+      ],
+      "human_approval": true,
+      "rate_limit": {
+        "count": 5,
         "per_seconds": 86400
       }
     }

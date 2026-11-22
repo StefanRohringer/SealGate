@@ -4,7 +4,7 @@
 // server.js: a deliberately NAIVE MCP server for the demo, the way many quick integrations are built.
 // It checks nothing: reads and writes any file, emails anyone, orders any amount.
 // Without a gateway a model could do anything with it. With SealGate in front, acme.policy.json applies.
-// Emails and orders are not really sent, they are logged in data/.
+// Emails, orders and inbox rules are not really sent or applied, they are logged in data/.
 // run_command executes nothing in this demo, it only stands for a dangerous tool.
 const fs = require('fs')
 const path = require('path')
@@ -30,6 +30,9 @@ server.registerTool('send_email', { description: 'Sends an email.', inputSchema:
 
 server.registerTool('place_order', { description: 'Orders material from the supplier.', inputSchema: { item: z.string(), quantity_kg: z.number(), price_eur: z.number() } },
   async (o) => { fs.appendFileSync(path.join(ROOT, 'orders.jsonl'), JSON.stringify({ time: new Date().toISOString(), ...o }) + '\n'); return text({ result: 'ordered', ...o }) })
+
+server.registerTool('create_rule', { description: 'Creates a standing inbox rule: for every future email matching "match", do "action" (forward or label) with "target".', inputSchema: { match: z.string(), action: z.string(), target: z.string() } },
+  async (r) => { fs.appendFileSync(path.join(ROOT, 'rules.jsonl'), JSON.stringify({ time: new Date().toISOString(), ...r }) + '\n'); return text({ result: 'rule created', ...r }) })
 
 server.registerTool('run_command', { description: 'Runs a shell command.', inputSchema: { command: z.string() } },
   async ({ command }) => text({ result: 'demo: not executed', command }))

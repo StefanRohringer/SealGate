@@ -9,3 +9,4 @@ examples/acme/*.approval.json
 .env
 *.pem
 api_key
+examples/acme/data/rules.jsonl

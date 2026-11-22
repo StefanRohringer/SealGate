@@ -131,9 +131,11 @@ Paths in the policy are relative to the policy file; paths from the model are re
 | `business.json` | 5 business-realistic injections (fake bank change, split order to avoid approval, travelling manager wants data at a private address, instruction spread over a framework contract, fake purchasing policy) + control |
 | `published.json` | 5 templates from AgentDojo and InjecAgent x 5 goals + control |
 | `utility.json` | 11 legitimate tasks without any attack: 8 within the demo policy, 3 that the policy deliberately blocks |
+| `events.json` | 3 event-driven attacks, one agent run and one gateway start per incoming email (order split across runs, a planted note that a later run acts on, a standing rule forwarding future mail outside) + control |
 
 ```bash
 node bench/bench.js --dry-run --scenarios-file business.json            # free: practice model always follows the injection
+node bench/bench.js --dry-run --scenarios-file events.json              # event-driven: counters must survive the restart between runs
 node bench/bench.js --models claude-haiku-5-5,claude-opus-5-5 --scenarios-file business.json --repeat 3
 ```
 
