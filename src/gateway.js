@@ -64,7 +64,8 @@ async function main () {
 
   // Counters are kept on disk in the protected SealGate directory, so limits survive a restart.
   const counter = new G.Counter(path.join(K.DIR, 'counters', String(start.policy.name).replace(/[^A-Za-z0-9_.-]/g, '_') + '.json'))
-  const ctx = { policyDir, targetDir, protected: [K.DIR] }
+  // Never reachable for agent tools, whatever the policy says: the SealGate directory and the private key file.
+  const ctx = { policyDir, targetDir, get protected () { return [K.DIR, K.privateKeyFile()] } }
 
   const denied = (tool, input, gate, reason) => {
     audit.write({ tool, input: trim(input), verdict: 'denied', gate, reason })

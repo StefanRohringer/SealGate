@@ -88,7 +88,7 @@ const CHECKS = {
     let target
     try { target = realPath(path.resolve(ctx.targetDir, v)) } catch (e) { return `path cannot be checked: ${e.message}` }
     // The SealGate directory (keys, emergency stop, approvals) is never reachable, whatever the policy says.
-    for (const g of ctx.protected || []) { try { if (isInside(target, realPath(g))) return 'path points into the protected SealGate directory' } catch {} }
+    for (const g of ctx.protected || []) { try { if (isInside(target, realPath(g))) return 'path points to a protected SealGate location (keys, approvals, emergency stop)' } catch {} }
     const allowed = [].concat(c.folders).map(o => { try { return realPath(path.resolve(ctx.policyDir, o)) } catch { return null } }).filter(Boolean)
     return allowed.some(o => isInside(target, o)) ? null : `path is outside the allowed folders (${v})`
   },

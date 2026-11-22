@@ -46,7 +46,7 @@ Requires Node.js 18 or newer.
 git clone https://github.com/StefanRohringer/SealGate.git
 cd SealGate
 npm install
-npm test                                        # 75 checks with a throwaway key
+npm test                                        # 94 checks with a throwaway key
 node bin/keygen.js                              # once: your approval key in ~/.sealgate
 node bin/sign-policy.js examples/acme/acme.policy.json
 node bin/agent.js examples/acme/acme.policy.json "Check the stock list and reorder what is below minimum."
@@ -59,6 +59,15 @@ node bin/approve.js
 ```
 
 Emergency stop for all gateways on the machine: `node bin/estop.js on` and `node bin/estop.js off`.
+
+**Key on a USB stick.** The private key does not have to stay on the machine. Create it on a stick, or move an existing one there:
+
+```bash
+node bin/keygen.js --key-file /media/you/STICK/sealgate_key.pem     # new key, private part on the stick
+node bin/keygen.js --move-to  /media/you/STICK/sealgate_key.pem     # move an existing private key
+```
+
+The public key stays in `~/.sealgate`, the gateway needs only that one. `bin/approve.js` and `bin/sign-policy.js` read the private key fresh from the stick for every signature and do not keep it. With the stick unplugged, nobody can approve a call or sign a policy on that machine. `node bin/approve.js --ask-every-time` also asks for the password on every decision.
 
 The example agent and the benchmark need an Anthropic API key in `ANTHROPIC_API_KEY`, in `~/.sealgate/api_key` or passed with `--key-file`.
 
@@ -158,7 +167,7 @@ First measurements are in [RESULTS.md](RESULTS.md).
 | `src/gates.js` | pure checking logic, no MCP |
 | `src/approval.js` | signature, hash, expiry, serial |
 | `src/audit.js` | hash-chained audit log |
-| `bin/keygen.js` | create the approval key |
+| `bin/keygen.js` | create the approval key, optionally on a USB stick (`--key-file`, `--move-to`) |
 | `bin/sign-policy.js` | review and sign a policy (password needed) |
 | `bin/approve.js` | a human decides on pending requests and signs each decision (password once at start) |
 | `bin/estop.js` | emergency stop on and off |
@@ -166,6 +175,7 @@ First measurements are in [RESULTS.md](RESULTS.md).
 | `bin/agent.js` | Claude agent that works only through the gateway |
 | `test/gateway.test.js` | 48 automated checks against the running gateway |
 | `test/approval.test.js` | 10 automated checks: signed and forged approvals |
+| `test/keyfile.test.js` | 19 automated checks: private key on a stick |
 | `test/counter.test.js` | 17 automated checks: limits across restarts |
 | `bench/` | prompt injection benchmark with and without the gateway |
 | `examples/acme/` | naive demo server, policy and fictional company data |

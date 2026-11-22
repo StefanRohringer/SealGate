@@ -6,13 +6,17 @@
 
 - Human approvals for single calls are now signed. `bin/approve.js` signs every decision with the approval key (it asks for the password once at the start), and the gateway accepts a yes only if the signature is valid, made with the approval key and bound to exactly that request. Before, any program that could write into `~/.sealgate/approvals/decided` could approve a call with a plain JSON file.
 
+- The private key can live outside `~/.sealgate`, for example on a USB stick: `node bin/keygen.js --key-file <file>` for a new key, `--move-to <file>` for an existing one. `bin/approve.js` and `bin/sign-policy.js` read the key fresh for every signature and do not keep it, so with the stick unplugged nothing can be approved or signed. The key file is never reachable for agent tools, wherever it lives.
+
 ### Changed
 
 - The format of the answer files in `~/.sealgate/approvals/decided` changed. Unsigned answers are denied.
+- `bin/approve.js` asks for the password at the start (or for every decision with `--ask-every-time`).
 
 ### Added
 
 - `test/approval.test.js` and three checks in `test/gateway.test.js`: unsigned, foreign-key and replayed approvals are denied.
+- `test/keyfile.test.js`: key on a stick, stick unplugged, moving a key.
 
 ## 0.2.0 (2026-11-22)
 

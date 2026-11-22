@@ -8,7 +8,6 @@
 // Usage: node bin/sign-policy.js <policy.json> [days valid, default 7] [name]
 const fs = require('fs')
 const readline = require('readline')
-const crypto = require('crypto')
 const K = require('../src/keys')
 const { sha256 } = require('../src/gates')
 const { signPolicy, approvalFileFor } = require('../src/approval')
@@ -18,7 +17,7 @@ const ask = (q) => new Promise(r => { const rl = readline.createInterface({ inpu
 async function main () {
   const file = process.argv[2]
   if (!file) { console.log('usage: node bin/sign-policy.js <policy.json> [days] [name]'); process.exit(1) }
-  if (!fs.existsSync(K.PRIVATE_KEY)) { console.log(`No key in ${K.DIR}. First run: node bin/keygen.js`); process.exit(1) }
+  if (!fs.existsSync(K.PRIVATE_KEY)) { console.log(`Private key not found: ${K.PRIVATE_KEY}. If it is on a stick, plug it in. If you have no key yet: node bin/keygen.js`); process.exit(1) }
   const p = JSON.parse(fs.readFileSync(file, 'utf8'))
   const days = Number(process.argv[3] || 7)
   console.log(`Policy:      ${p.name}  (${p.description || ''})`)
@@ -34,7 +33,7 @@ async function main () {
   if ((await ask('Approve this policy? Type "approve": ')).trim() !== 'approve') { console.log('Not approved.'); process.exit(1) }
   const password = await K.askHidden('Password: ')
   let key
-  try { key = crypto.createPrivateKey({ key: fs.readFileSync(K.PRIVATE_KEY), passphrase: password }) } catch { console.log('Wrong password. Nothing approved.'); process.exit(1) }
+  try { key = K.loadPrivateKey(password) } catch (e) { console.log(e.code === 'KEY_MISSING' ? `${e.message}. Nothing approved.` : 'Wrong password. Nothing approved.'); process.exit(1) }
   const d = signPolicy(file, key, { days, by: process.argv[4] || process.env.USER || 'unknown', serial: K.nextSerial() })
   console.log(`Approved: ${approvalFileFor(file)}  (serial ${d.serial}, valid until ${d.expires_at})`)
 }

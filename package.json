@@ -9,7 +9,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node test/counter.test.js && node test/approval.test.js && node test/gateway.test.js",
+    "test": "node test/counter.test.js && node test/approval.test.js && node test/keyfile.test.js && node test/gateway.test.js",
     "bench:dry": "node bench/bench.js --dry-run"
   },
   "keywords": [
