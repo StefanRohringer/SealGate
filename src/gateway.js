@@ -12,7 +12,7 @@
 //   2. Policy:         the policy file must be signed by a human, unchanged and not expired.
 //   3. Tool:           only tools named in the policy. Other tools are hidden from the model.
 //   4. Input:          every field is checked, unknown fields are denied.
-//   5. Rate:           maximum calls per time window, per tool and in total.
+//   5. Rate:           maximum calls per time window, per tool and in total (kept on disk, survives restarts).
 //   6. Human:          where the policy says so, a human must approve (bin/approve.js).
 //   7. Execute, then redact secrets in the response.
 // Every decision is written to a hash-chained audit log.
@@ -61,7 +61,8 @@ async function main () {
   const client = new Client({ name: 'sealgate-gateway', version: '0.1.0' })
   await client.connect(transport)
 
-  const counter = new G.Counter()
+  // Counters are kept on disk in the protected SealGate directory, so limits survive a restart.
+  const counter = new G.Counter(path.join(K.DIR, 'counters', String(start.policy.name).replace(/[^A-Za-z0-9_.-]/g, '_') + '.json'))
   const ctx = { policyDir, targetDir, protected: [K.DIR] }
 
   const denied = (tool, input, gate, reason) => {
@@ -130,8 +131,10 @@ async function main () {
     }
 
     // 7. Execute
-    counter.record(tool); counter.record('*')
-    if (h && h.rolling_sum_seconds && !withHuman) { const f = G.getField(input, h.field); if (f.present && typeof f.value === 'number') counter.add(sumKey, f.value) }
+    try {
+      counter.record(tool); counter.record('*')
+      if (h && h.rolling_sum_seconds && !withHuman) { const f = G.getField(input, h.field); if (f.present && typeof f.value === 'number') counter.add(sumKey, f.value) }
+    } catch (err) { return denied(tool, input, 'rate', `counter state cannot be saved: ${err.message}`) }
     let result
     try {
       result = await client.callTool({ name: tool, arguments: input }, undefined, { timeout: (rule.timeout_s || 60) * 1000 })

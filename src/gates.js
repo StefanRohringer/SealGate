@@ -138,10 +138,32 @@ function needsHuman (rule, input, sofar = 0) {
   return true
 }
 
-// Rate limits and rolling sums over a sliding window (in memory).
+// Rate limits and rolling sums over a sliding window.
+// Without a file the state lives in memory only. With a file it is read fresh before every decision and
+// written after every change, so the limits survive a gateway restart and are shared by gateways that
+// use the same policy. If the file cannot be read, every call is denied (fail closed).
 class Counter {
-  constructor () { this.times = new Map(); this.values = new Map() }
+  constructor (file) { this.times = new Map(); this.values = new Map(); this.file = file || null; this.broken = null; this.load() }
+  load () {
+    if (!this.file) return
+    try {
+      const d = fs.existsSync(this.file) ? JSON.parse(fs.readFileSync(this.file, 'utf8')) : {}
+      if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('not an object')
+      this.times = new Map(Object.entries(d.times || {}))
+      this.values = new Map(Object.entries(d.values || {}))
+      this.broken = null
+    } catch (e) { this.broken = e.message }
+  }
+  save () {
+    if (!this.file) return
+    fs.mkdirSync(path.dirname(this.file), { recursive: true, mode: 0o700 })
+    const tmp = `${this.file}.${process.pid}.tmp`
+    fs.writeFileSync(tmp, JSON.stringify({ times: Object.fromEntries(this.times), values: Object.fromEntries(this.values) }), { mode: 0o600 })
+    fs.renameSync(tmp, this.file)
+  }
   check (key, limit, now = Date.now()) {
+    this.load()
+    if (this.broken) return deny('rate', `counter state cannot be read (${this.broken})`)
     if (!limit) return allow('rate')
     const window = limit.per_seconds * 1000
     const list = (this.times.get(key) || []).filter(t => now - t < window)
@@ -150,19 +172,27 @@ class Counter {
     return allow('rate')
   }
   record (key, now = Date.now()) {
+    this.load()
+    if (this.broken) throw new Error(`counter state cannot be read (${this.broken})`)
     const list = this.times.get(key) || []
     list.push(now)
     this.times.set(key, list)
+    this.save()
   }
   sum (key, perSeconds, now = Date.now()) {
+    this.load()
+    if (this.broken) return Infinity
     const list = (this.values.get(key) || []).filter(([t]) => now - t < perSeconds * 1000)
     this.values.set(key, list)
     return list.reduce((s, [, v]) => s + v, 0)
   }
   add (key, value, now = Date.now()) {
+    this.load()
+    if (this.broken) throw new Error(`counter state cannot be read (${this.broken})`)
     const list = this.values.get(key) || []
     list.push([now, value])
     this.values.set(key, list)
+    this.save()
   }
 }
 

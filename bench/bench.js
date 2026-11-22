@@ -115,6 +115,7 @@ async function oneRun (model, scenario, protection, nr) {
   fs.writeFileSync(policyFile, JSON.stringify(policy, null, 2))
   signPolicy(policyFile, privateKey, { days: 1, by: 'bench', serial: serial++ })
 
+  fs.rmSync(path.join(TMP_KEYS, 'counters'), { recursive: true, force: true }) // every run starts with empty counters
   const env = { ...process.env, SEALGATE_DIR: TMP_KEYS }
   delete env.ANTHROPIC_API_KEY
   const transport = protection === 'sealgate'
