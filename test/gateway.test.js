@@ -14,7 +14,7 @@ const TMP_KEYS = fs.mkdtempSync(path.join(os.tmpdir(), 'sealgate-keys-'))
 process.env.SEALGATE_DIR = TMP_KEYS
 const ROOT = path.join(__dirname, '..')
 const K = require('../src/keys')
-const { signPolicy, approvalFileFor } = require('../src/approval')
+const { signPolicy, approvalFileFor, signDecision } = require('../src/approval')
 const { verifyChain } = require('../src/audit')
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js')
 const { StdioClientTransport } = require('@modelcontextprotocol/sdk/client/stdio.js')
@@ -39,8 +39,10 @@ fs.writeFileSync(K.PUBLIC_KEY, publicKey.export({ type: 'spki', format: 'pem' })
 signPolicy(POLICY, privateKey, { days: 1, by: 'test', serial: 10 })
 const oldApproval = fs.readFileSync(approvalFileFor(POLICY), 'utf8')
 
-// The "human" for approvals answers with the queued decisions in order
+// The "human" for approvals answers with the queued decisions in order.
+// 'yes' and 'no' are signed with the test key. 'unsigned', 'foreign' and 'replay' are forged approvals.
 const answers = []
+let lastYes = null
 let humanRunning = true
 async function human () {
   const pending = path.join(K.APPROVALS, 'pending'); const decided = path.join(K.APPROVALS, 'decided')
@@ -52,7 +54,14 @@ async function human () {
       done.add(f)
       const r = JSON.parse(fs.readFileSync(path.join(pending, f), 'utf8'))
       const d = answers.shift()
-      if (d) fs.writeFileSync(path.join(decided, f), JSON.stringify({ id: r.id, decision: d, by: 'test-human' }))
+      if (!d) continue
+      let answer
+      if (d === 'unsigned') answer = { id: r.id, decision: 'yes', by: 'someone' } // the old plain format
+      else if (d === 'foreign') answer = signDecision(r, 'yes', crypto.generateKeyPairSync('ed25519').privateKey, { by: 'stranger' })
+      else if (d === 'replay') answer = lastYes // a real signed yes, but for an earlier request
+      else answer = signDecision(r, d, privateKey, { by: 'test-human' })
+      if (d === 'yes') lastYes = answer
+      fs.writeFileSync(path.join(decided, f), JSON.stringify(answer))
     }
     await sleep(100)
   }
@@ -123,6 +132,12 @@ async function main () {
   expect('order 620 EUR, human says yes', (await call('place_order', { item: 'PA6 pellets', quantity_kg: 200, price_eur: 620 })).verdict, 'executed')
   answers.push('no')
   expect('order 920 EUR, human says no', (await call('place_order', { item: 'ABS pellets', quantity_kg: 400, price_eur: 920 })).verdict, 'denied [human]')
+  answers.push('unsigned')
+  expect('order 640 EUR, unsigned yes dropped into the folder', (await call('place_order', { item: 'PA6 pellets', quantity_kg: 200, price_eur: 640 })).verdict, 'denied [human]')
+  answers.push('foreign')
+  expect('order 640 EUR, yes signed with a foreign key', (await call('place_order', { item: 'PA6 pellets', quantity_kg: 200, price_eur: 640 })).verdict, 'denied [human]')
+  answers.push('replay')
+  expect('order 640 EUR, earlier signed yes replayed', (await call('place_order', { item: 'PA6 pellets', quantity_kg: 200, price_eur: 640 })).verdict, 'denied [human]')
   expect('order 700 EUR, human does not answer (5 s)', (await call('place_order', { item: 'PP pellets', quantity_kg: 400, price_eur: 700 })).verdict, 'denied [human]')
   expect('split order 200 EUR: daily sum without approval >= 500', (await call('place_order', { item: 'PP pellets', quantity_kg: 140, price_eur: 200 })).verdict, 'denied [human]')
 

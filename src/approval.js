@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Stefan Rohringer
 'use strict'
-// approval.js: is the policy signed by a human, unchanged and still valid?
+// approval.js: is the policy signed by a human, unchanged and still valid? And is a human's decision on a
+// single call really signed by that human?
 // Checks the Ed25519 signature, the policy hash, the expiry date, the key fingerprint and the serial number
 // (an approval older than the newest one seen is rejected, so nobody can replay an old approval).
 
@@ -64,4 +65,38 @@ function signPolicy (policyFile, privateKey, { days = 7, by = 'unknown', serial 
   return document
 }
 
-module.exports = { verifyApproval, signPolicy, approvalFileFor }
+// A human's decision on a single call (bin/approve.js). It is signed with the same key as the policy and
+// bound to the exact request. A file that another program drops into the approvals folder is therefore not
+// an approval, and a signed "yes" cannot be reused for a different or changed request.
+function signDecision (request, decision, privateKey, { by = 'human', reason = '' } = {}) {
+  const document = {
+    kind: 'call_approval',
+    id: request.id,
+    request_hash: sha256(request),
+    decision: decision === 'yes' ? 'yes' : 'no',
+    reason,
+    decided_by: by,
+    decided_at: new Date().toISOString(),
+    key_id: K.fingerprint(crypto.createPublicKey(privateKey))
+  }
+  const signature = crypto.sign(null, Buffer.from(canonical(document)), privateKey).toString('base64')
+  return { document, signature }
+}
+
+// Returns { ok, reason, by }. ok is true only for a validly signed "yes" for exactly this request.
+function verifyDecision (request, answer) {
+  let publicKey
+  try { publicKey = K.loadPublicKey() } catch { return { ok: false, reason: 'public key missing' } }
+  const d = answer && answer.document
+  if (!d || typeof d !== 'object' || typeof answer.signature !== 'string') return { ok: false, reason: 'answer is not signed with the approval key' }
+  let valid = false
+  try { valid = crypto.verify(null, Buffer.from(canonical(d)), publicKey, Buffer.from(answer.signature, 'base64')) } catch {}
+  if (!valid) return { ok: false, reason: 'signature of the answer is invalid' }
+  if (d.kind !== 'call_approval') return { ok: false, reason: 'wrong kind of answer' }
+  if (d.key_id !== K.fingerprint(publicKey)) return { ok: false, reason: 'answer was signed with a different key' }
+  if (d.id !== request.id || d.request_hash !== sha256(request)) return { ok: false, reason: 'answer does not match the request' }
+  if (d.decision !== 'yes') return { ok: false, reason: `rejected by a human${d.reason ? ': ' + d.reason : ''}` }
+  return { ok: true, reason: '', by: d.decided_by || 'human' }
+}
+
+module.exports = { verifyApproval, signPolicy, approvalFileFor, signDecision, verifyDecision }

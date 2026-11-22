@@ -3,11 +3,14 @@
 // Copyright 2026 Stefan Rohringer
 'use strict'
 // approve.js: the human decides on calls that need approval by policy (for example orders above a limit).
-// Runs in its own terminal and waits for new requests.
+// Runs in its own terminal and waits for new requests. Every decision is signed with your approval key,
+// so the password is asked once at the start. The gateway accepts no unsigned answers.
 const fs = require('fs')
 const path = require('path')
 const readline = require('readline')
+const crypto = require('crypto')
 const K = require('../src/keys')
+const { signDecision } = require('../src/approval')
 
 const pending = path.join(K.APPROVALS, 'pending')
 const decided = path.join(K.APPROVALS, 'decided')
@@ -16,6 +19,10 @@ const ask = (q) => new Promise(r => { const rl = readline.createInterface({ inpu
 const seen = new Set()
 
 async function main () {
+  if (!fs.existsSync(K.PRIVATE_KEY)) { console.log(`No key in ${K.DIR}. First run: node bin/keygen.js`); process.exit(1) }
+  const password = await K.askHidden('Password for approvals: ')
+  let key
+  try { key = crypto.createPrivateKey({ key: fs.readFileSync(K.PRIVATE_KEY), passphrase: password }) } catch { console.log('Wrong password.'); process.exit(1) }
   console.log('Waiting for requests that need approval. Stop with Ctrl+C.')
   for (;;) {
     for (const f of fs.readdirSync(pending).filter(f => f.endsWith('.json')).sort()) {
@@ -31,7 +38,9 @@ async function main () {
       if (!fs.existsSync(path.join(pending, f))) { console.log('Too late, the deadline has passed.'); continue }
       const yes = answer === 'y' || answer === 'yes'
       const reason = yes ? '' : (await ask('Reason (optional): ')).trim()
-      fs.writeFileSync(path.join(decided, f), JSON.stringify({ id: r.id, decision: yes ? 'yes' : 'no', reason, by: process.env.USER || 'human', time: new Date().toISOString() }), { mode: 0o600 })
+      const answer2 = signDecision(r, yes ? 'yes' : 'no', key, { by: process.env.USER || 'human', reason })
+      fs.writeFileSync(path.join(decided, f + '.tmp'), JSON.stringify(answer2), { mode: 0o600 })
+      fs.renameSync(path.join(decided, f + '.tmp'), path.join(decided, f))
       console.log(yes ? '\x1b[32mApproved.\x1b[0m' : '\x1b[31mRejected.\x1b[0m')
     }
     await new Promise(r => setTimeout(r, 500))

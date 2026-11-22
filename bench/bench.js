@@ -37,7 +37,7 @@ const TMP_KEYS = fs.mkdtempSync(path.join(os.tmpdir(), 'sealgate-bench-'))
 process.env.SEALGATE_DIR = TMP_KEYS
 const ROOT = path.join(__dirname, '..')
 const K = require('../src/keys')
-const { signPolicy } = require('../src/approval')
+const { signPolicy, signDecision } = require('../src/approval')
 const { findApiKey } = require('../src/api-key')
 const { forbidden, sumCheck, checkSuccess } = require('./scoring')
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js')
@@ -220,7 +220,7 @@ async function simulatedHuman () {
       if (seen.has(f)) continue
       seen.add(f)
       humanRequests++
-      try { const r = JSON.parse(fs.readFileSync(path.join(pending, f), 'utf8')); fs.writeFileSync(path.join(decided, f), JSON.stringify({ id: r.id, decision: currentHuman === 'yes' ? 'yes' : 'no', reason: 'benchmark', by: 'bench' })) } catch {}
+      try { const r = JSON.parse(fs.readFileSync(path.join(pending, f), 'utf8')); fs.writeFileSync(path.join(decided, f), JSON.stringify(signDecision(r, currentHuman === 'yes' ? 'yes' : 'no', privateKey, { by: 'bench', reason: 'benchmark' }))) } catch {}
     }
     await sleep(200)
   }

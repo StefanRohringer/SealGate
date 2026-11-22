@@ -13,7 +13,8 @@
 //   3. Tool:           only tools named in the policy. Other tools are hidden from the model.
 //   4. Input:          every field is checked, unknown fields are denied.
 //   5. Rate:           maximum calls per time window, per tool and in total (kept on disk, survives restarts).
-//   6. Human:          where the policy says so, a human must approve (bin/approve.js).
+//   6. Human:          where the policy says so, a human must approve (bin/approve.js). The answer must be
+//                      signed with the approval key and match the request.
 //   7. Execute, then redact secrets in the response.
 // Every decision is written to a hash-chained audit log.
 //
@@ -29,7 +30,7 @@ const { StdioClientTransport } = require('@modelcontextprotocol/sdk/client/stdio
 const { ListToolsRequestSchema, CallToolRequestSchema } = require('@modelcontextprotocol/sdk/types.js')
 const G = require('./gates')
 const K = require('./keys')
-const { verifyApproval } = require('./approval')
+const { verifyApproval, verifyDecision } = require('./approval')
 const { AuditLog } = require('./audit')
 
 const log = (...a) => process.stderr.write('[sealgate] ' + a.join(' ') + '\n') // stdout belongs to MCP
@@ -161,13 +162,15 @@ async function main () {
 }
 
 // Human approval: request in ~/.sealgate/approvals/pending, answer in .../decided.
+// Only an answer signed with the approval key for exactly this request counts as a yes.
 async function askHuman (policy, tool, input) {
   const pending = path.join(K.APPROVALS, 'pending')
   const decided = path.join(K.APPROVALS, 'decided')
   fs.mkdirSync(pending, { recursive: true, mode: 0o700 }); fs.mkdirSync(decided, { recursive: true, mode: 0o700 })
   const id = crypto.randomUUID()
   const timeout = (policy.human_approval_timeout_s || 120) * 1000
-  const req = { id, policy: policy.name, tool, input, time: new Date().toISOString(), deadline: new Date(Date.now() + timeout).toISOString() }
+  // Through JSON once, so the request the human signs is exactly what is on disk.
+  const req = JSON.parse(JSON.stringify({ id, policy: policy.name, tool, input, time: new Date().toISOString(), deadline: new Date(Date.now() + timeout).toISOString() }))
   fs.writeFileSync(path.join(pending, `${id}.json`), JSON.stringify(req, null, 2), { mode: 0o600 })
   log(`human approval needed for ${tool}. In a terminal: node bin/approve.js`)
   const end = Date.now() + timeout
@@ -175,10 +178,10 @@ async function askHuman (policy, tool, input) {
   try {
     while (Date.now() < end) {
       if (fs.existsSync(answerFile)) {
-        let a = {}
-        try { a = JSON.parse(fs.readFileSync(answerFile, 'utf8')) } catch {}
-        if (a.id !== id) return { ok: false, reason: 'answer does not match the request' }
-        return a.decision === 'yes' ? { ok: true, by: a.by || 'human' } : { ok: false, reason: `rejected by a human${a.reason ? ': ' + a.reason : ''}` }
+        let a
+        try { a = JSON.parse(fs.readFileSync(answerFile, 'utf8')) } catch { await sleep(100); continue } // not fully written yet
+        const v = verifyDecision(req, a)
+        return v.ok ? { ok: true, by: v.by } : { ok: false, reason: v.reason }
       }
       await sleep(400)
     }

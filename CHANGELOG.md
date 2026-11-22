@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Security
+
+- Human approvals for single calls are now signed. `bin/approve.js` signs every decision with the approval key (it asks for the password once at the start), and the gateway accepts a yes only if the signature is valid, made with the approval key and bound to exactly that request. Before, any program that could write into `~/.sealgate/approvals/decided` could approve a call with a plain JSON file.
+
+### Changed
+
+- The format of the answer files in `~/.sealgate/approvals/decided` changed. Unsigned answers are denied.
+
+### Added
+
+- `test/approval.test.js` and three checks in `test/gateway.test.js`: unsigned, foreign-key and replayed approvals are denied.
+
 ## 0.2.0 (2026-11-22)
 
 ### Security

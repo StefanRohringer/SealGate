@@ -19,6 +19,7 @@ What makes SealGate different from a typical gateway:
 
 - **The policy is signed by a human.** Ed25519 signature over the policy hash, with an expiry date and an increasing serial number. If anyone changes a single character of the policy, or replays an older approval, every call is denied. Think of it as a signed work instruction for the agent.
 - **Human approval on rolling sums**, not only on single calls. A large order cannot be split into many small ones below the threshold, also not across gateway restarts or separate agent runs.
+- **Every human approval is signed** with the same key and bound to the exact request. A file dropped into the approvals folder by another program is not an approval, and a signed yes cannot be reused for another call.
 - **A benchmark that measures with and without the gateway**, and separates *deceived* (the model tried) from *harm* (the call was executed).
 
 Status: **0.2, early.** Read [SECURITY.md](SECURITY.md) before you rely on it.
@@ -45,7 +46,7 @@ Requires Node.js 18 or newer.
 git clone https://github.com/StefanRohringer/SealGate.git
 cd SealGate
 npm install
-npm test                                        # 62 checks with a throwaway key
+npm test                                        # 75 checks with a throwaway key
 node bin/keygen.js                              # once: your approval key in ~/.sealgate
 node bin/sign-policy.js examples/acme/acme.policy.json
 node bin/agent.js examples/acme/acme.policy.json "Check the stock list and reorder what is below minimum."
@@ -159,11 +160,12 @@ First measurements are in [RESULTS.md](RESULTS.md).
 | `src/audit.js` | hash-chained audit log |
 | `bin/keygen.js` | create the approval key |
 | `bin/sign-policy.js` | review and sign a policy (password needed) |
-| `bin/approve.js` | a human decides on pending requests |
+| `bin/approve.js` | a human decides on pending requests and signs each decision (password once at start) |
 | `bin/estop.js` | emergency stop on and off |
 | `bin/verify-audit.js` | check audit logs |
 | `bin/agent.js` | Claude agent that works only through the gateway |
-| `test/gateway.test.js` | 45 automated checks against the running gateway |
+| `test/gateway.test.js` | 48 automated checks against the running gateway |
+| `test/approval.test.js` | 10 automated checks: signed and forged approvals |
 | `test/counter.test.js` | 17 automated checks: limits across restarts |
 | `bench/` | prompt injection benchmark with and without the gateway |
 | `examples/acme/` | naive demo server, policy and fictional company data |
